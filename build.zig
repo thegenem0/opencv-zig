@@ -44,6 +44,8 @@ pub fn build(b: *std.Build) void {
         });
     }
 
+    opencv_zig.addIncludePath(b.path("libs/gocv"));
+
     opencv_zig.installHeadersDirectory(dep_opencv_c.path(""), "", .{
         .include_extensions = &.{".h"},
     });

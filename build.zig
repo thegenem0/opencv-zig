@@ -86,21 +86,26 @@ fn linkToOpenCV(exe: *std.Build.Step.Compile) void {
             exe.addLibraryPath(exe.step.owner.path("c:/msys64/mingw64/lib"));
             exe.addIncludePath(exe.step.owner.path("c:/opencv/build/install/include"));
             exe.addLibraryPath(exe.step.owner.path("c:/opencv/build/install/x64/mingw/staticlib"));
-
-            exe.linkSystemLibrary("opencv4");
-            exe.linkSystemLibrary("stdc++");
-            exe.linkSystemLibrary("unwind");
-            exe.linkSystemLibrary("m");
-            exe.linkSystemLibrary("c");
+        },
+        .linux => {
+            exe.addIncludePath(.{ .cwd_relative = "/usr/include/opencv4" });
+            exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+            exe.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
+        },
+        .macos => {
+            exe.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
+            exe.addIncludePath(.{ .cwd_relative = "/usr/local/include/opencv4" });
+            exe.addLibraryPath(.{ .cwd_relative = "/usr/local/lib" });
         },
         else => {
-            exe.linkLibCpp();
-            exe.linkSystemLibrary("opencv4");
-            exe.linkSystemLibrary("unwind");
-            exe.linkSystemLibrary("m");
-            exe.linkSystemLibrary("c");
+            @panic("Unsupported OS");
         },
     }
+
+    exe.linkLibC();
+    exe.linkLibCpp();
+    exe.linkSystemLibrary("opencv4");
+    exe.linkSystemLibrary("m");
 }
 
 fn copyDir(b: *std.Build, source_path: []const u8, dest_path: []const u8) void {

@@ -21,6 +21,7 @@ const c_build_options: []const []const u8 = &.{
     "-Wall",
     "-Wextra",
     "--std=c++11",
+    "-fPIC",
 };
 
 const gocv_path = "libs/gocv";
@@ -52,6 +53,7 @@ pub fn build(b: *std.Build) void {
     linkToOpenCV(opencv_zig);
 
     opencv_zig.linkLibC();
+    opencv_zig.linkLibCpp();
 
     b.installArtifact(opencv_zig);
 
@@ -60,7 +62,14 @@ pub fn build(b: *std.Build) void {
     });
 
     module.addIncludePath(b.path(gocv_path));
-    module.linkLibrary(opencv_zig);
+
+    inline for (gocv_source_files) |file| {
+        const c_file_path = b.path(b.pathJoin(&.{ gocv_path, file }));
+        module.addCSourceFile(.{
+            .file = c_file_path,
+            .flags = c_build_options,
+        });
+    }
 }
 
 fn linkToOpenCV(exe: *std.Build.Step.Compile) void {

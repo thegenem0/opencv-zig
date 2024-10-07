@@ -53,6 +53,12 @@ pub fn build(b: *std.Build) void {
     opencv_zig.linkLibC();
 
     b.installArtifact(opencv_zig);
+
+    const module = b.addModule("opencv_c_zig", .{
+        .root_source_file = b.path("src/opencv.zig"),
+    });
+
+    module.addIncludePath(dep_opencv_c.path(""));
 }
 
 fn linkToOpenCV(exe: *std.Build.Step.Compile) void {

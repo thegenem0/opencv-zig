@@ -8,6 +8,9 @@
         },
     },
     .paths = .{
-        "",
+        "src",
+        "libs",
+        "build.zig",
+        "build.zig.zon",
     },
 }

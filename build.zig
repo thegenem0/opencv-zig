@@ -24,13 +24,16 @@ const c_build_options: []const []const u8 = &.{
     "-fPIC",
 };
 
-const gocv_path = "libs/gocv";
-
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    copyDir(b, gocv_path, gocv_path);
+    const gocv_dep = b.dependency("gocv", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const gocv_path = gocv_dep.path(".");
 
     const opencv_zig = b.addStaticLibrary(.{
         .name = "opencv",
@@ -40,15 +43,15 @@ pub fn build(b: *std.Build) void {
     });
 
     inline for (gocv_source_files) |file| {
-        const c_file_path = b.pathJoin(&.{ gocv_path, file });
+        const c_file_path = b.pathJoin(&.{ gocv_path.getPath(b), file });
         opencv_zig.addCSourceFile(.{
-            .file = b.path(c_file_path),
+            .file = .{ .cwd_relative = c_file_path },
             .flags = c_build_options,
         });
     }
 
-    opencv_zig.addIncludePath(b.path(gocv_path));
-    opencv_zig.installHeadersDirectory(b.path(gocv_path), "", .{
+    opencv_zig.addIncludePath(gocv_path);
+    opencv_zig.installHeadersDirectory(gocv_path, "", .{
         .include_extensions = &.{".h"},
     });
 
@@ -63,12 +66,12 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/opencv.zig"),
     });
 
-    module.addIncludePath(b.path(gocv_path));
+    module.addIncludePath(gocv_path);
 
     inline for (gocv_source_files) |file| {
-        const c_file_path = b.pathJoin(&.{ gocv_path, file });
+        const c_file_path = b.pathJoin(&.{ gocv_path.getPath(b), file });
         module.addCSourceFile(.{
-            .file = b.path(c_file_path),
+            .file = .{ .cwd_relative = c_file_path },
             .flags = c_build_options,
         });
     }

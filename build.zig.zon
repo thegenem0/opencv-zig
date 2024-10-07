@@ -1,5 +1,5 @@
 .{
-    .name = "zigcv",
+    .name = "opencv-zig",
     .version = "0.0.1",
     .dependencies = .{
         .gocv = .{

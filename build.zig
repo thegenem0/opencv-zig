@@ -20,8 +20,9 @@ const gocv_source_files = [_][]const u8{
 const c_build_options: []const []const u8 = &.{
     "-Wall",
     "-Wextra",
-    "--std=c++11",
+    "--std=c++17",
     "-fPIC",
+    "-D_GLIBCXX_USE_CXX11_ABI=0",
 };
 
 pub fn build(b: *std.Build) void {

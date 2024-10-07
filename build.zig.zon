@@ -1,0 +1,13 @@
+.{
+    .name = "zigcv",
+    .version = "0.0.1",
+    .dependencies = .{
+        .gocv = .{
+            .url = "https://github.com/hybridgroup/gocv/archive/refs/tags/v0.38.0.tar.gz",
+            .hash = "12202031f81f8257191671bf28dbc0816b6af6418864a0e527b0c43b102b4e774492",
+        },
+    },
+    .paths = .{
+        "",
+    },
+}

@@ -23,6 +23,8 @@ const c_build_options: []const []const u8 = &.{
     "--std=c++11",
 };
 
+const gocv_path = "libs/gocv";
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -34,19 +36,16 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const dep_opencv_c = b.dependency("gocv", .{ .target = target, .optimize = optimize });
-
     inline for (gocv_source_files) |file| {
-        const c_file_path = b.path(b.pathJoin(&.{ "libs/gocv", file }));
+        const c_file_path = b.path(b.pathJoin(&.{ gocv_path, file }));
         opencv_zig.addCSourceFile(.{
             .file = c_file_path,
             .flags = c_build_options,
         });
     }
 
-    opencv_zig.addIncludePath(b.path("libs/gocv"));
-
-    opencv_zig.installHeadersDirectory(dep_opencv_c.path(""), "", .{
+    opencv_zig.addIncludePath(b.path(gocv_path));
+    opencv_zig.installHeadersDirectory(b.path(gocv_path), "", .{
         .include_extensions = &.{".h"},
     });
 
@@ -60,7 +59,8 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/opencv.zig"),
     });
 
-    module.addIncludePath(dep_opencv_c.path(""));
+    module.addIncludePath(b.path(gocv_path));
+    module.linkLibrary(opencv_zig);
 }
 
 fn linkToOpenCV(exe: *std.Build.Step.Compile) void {

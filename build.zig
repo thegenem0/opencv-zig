@@ -30,6 +30,8 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    copyDir(b, gocv_path, gocv_path);
+
     const opencv_zig = b.addStaticLibrary(.{
         .name = "opencv",
         .root_source_file = b.path("src/opencv.zig"),
@@ -38,9 +40,9 @@ pub fn build(b: *std.Build) void {
     });
 
     inline for (gocv_source_files) |file| {
-        const c_file_path = b.path(b.pathJoin(&.{ gocv_path, file }));
+        const c_file_path = b.pathJoin(&.{ gocv_path, file });
         opencv_zig.addCSourceFile(.{
-            .file = c_file_path,
+            .file = b.path(c_file_path),
             .flags = c_build_options,
         });
     }
@@ -64,9 +66,9 @@ pub fn build(b: *std.Build) void {
     module.addIncludePath(b.path(gocv_path));
 
     inline for (gocv_source_files) |file| {
-        const c_file_path = b.path(b.pathJoin(&.{ gocv_path, file }));
+        const c_file_path = b.pathJoin(&.{ gocv_path, file });
         module.addCSourceFile(.{
-            .file = c_file_path,
+            .file = b.path(c_file_path),
             .flags = c_build_options,
         });
     }
@@ -96,4 +98,13 @@ fn linkToOpenCV(exe: *std.Build.Step.Compile) void {
             exe.linkSystemLibrary("c");
         },
     }
+}
+
+fn copyDir(b: *std.Build, source_path: []const u8, dest_path: []const u8) void {
+    const src_dir = b.pathJoin(&.{ b.build_root.path.?, source_path });
+    b.installDirectory(.{
+        .source_dir = .{ .cwd_relative = src_dir },
+        .install_dir = .{ .custom = dest_path },
+        .install_subdir = "",
+    });
 }

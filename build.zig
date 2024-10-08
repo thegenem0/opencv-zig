@@ -17,15 +17,9 @@ const gocv_source_files = [_][]const u8{
     "videoio.cpp",
 };
 
-const c_build_options: []const []const u8 = &.{
-    "-Wall",
-    "-Wextra",
-    "--std=c++17",
-    "-fPIC",
-    "-D_GLIBCXX_USE_CXX11_ABI=0",
-};
+const gocv_build_options = &[_][]const u8{ "-Wall", "-Wextra", "--std=c++11", "-fPIC" };
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -33,87 +27,77 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-
     const gocv_path = gocv_dep.path(".");
 
     const opencv_zig = b.addStaticLibrary(.{
         .name = "opencv",
-        .root_source_file = b.path("src/opencv.zig"),
         .target = target,
         .optimize = optimize,
     });
 
     inline for (gocv_source_files) |file| {
         const c_file_path = b.pathJoin(&.{ gocv_path.getPath(b), file });
+        std.debug.print("adding {s}\n", .{c_file_path});
         opencv_zig.addCSourceFile(.{
             .file = .{ .cwd_relative = c_file_path },
-            .flags = c_build_options,
+            .flags = gocv_build_options,
         });
     }
 
+    linkSystemLibraries(opencv_zig);
+
+    std.debug.print("adding include path {s}\n", .{gocv_path.getPath(b)});
     opencv_zig.addIncludePath(gocv_path);
-    opencv_zig.installHeadersDirectory(gocv_path, "", .{
-        .include_extensions = &.{".h"},
-    });
 
-    linkToOpenCV(opencv_zig);
-
-    opencv_zig.linkLibC();
-    opencv_zig.linkLibCpp();
-
+    std.debug.print("installing headers\n", .{});
     b.installArtifact(opencv_zig);
 
-    const module = b.addModule("opencv_c_zig", .{
+    const module = b.addModule("opencv_c", .{
         .root_source_file = b.path("src/opencv.zig"),
     });
 
+    std.debug.print("adding include path {s}\n", .{gocv_path.getPath(b)});
     module.addIncludePath(gocv_path);
 
-    inline for (gocv_source_files) |file| {
-        const c_file_path = b.pathJoin(&.{ gocv_path.getPath(b), file });
-        module.addCSourceFile(.{
-            .file = .{ .cwd_relative = c_file_path },
-            .flags = c_build_options,
-        });
-    }
+    const example = b.addExecutable(.{
+        .name = "example",
+        .root_source_file = b.path("examples/hello/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    std.debug.print("adding import opencv\n", .{});
+    example.root_module.addImport("opencv", module);
+
+    std.debug.print("linking library opencv\n", .{});
+    example.linkLibrary(opencv_zig);
+    linkSystemLibraries(example);
+
+    b.installArtifact(example);
 }
 
-fn linkToOpenCV(exe: *std.Build.Step.Compile) void {
-    switch (exe.rootModuleTarget().os.tag) {
+fn linkSystemLibraries(step: *std.Build.Step.Compile) void {
+    switch (step.rootModuleTarget().os.tag) {
         .windows => {
-            exe.addIncludePath(exe.step.owner.path("c:/msys64/mingw64/include"));
-            exe.addIncludePath(exe.step.owner.path("c:/msys64/mingw64/include/c++/12.2.0"));
-            exe.addIncludePath(exe.step.owner.path("c:/msys64/mingw64/include/c++/12.2.0/x86_64-w64-mingw32"));
-            exe.addLibraryPath(exe.step.owner.path("c:/msys64/mingw64/lib"));
-            exe.addIncludePath(exe.step.owner.path("c:/opencv/build/install/include"));
-            exe.addLibraryPath(exe.step.owner.path("c:/opencv/build/install/x64/mingw/staticlib"));
-        },
-        .linux => {
-            exe.addIncludePath(.{ .cwd_relative = "/usr/include/opencv4" });
-            exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
-            exe.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
-        },
-        .macos => {
-            exe.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
-            exe.addIncludePath(.{ .cwd_relative = "/usr/local/include/opencv4" });
-            exe.addLibraryPath(.{ .cwd_relative = "/usr/local/lib" });
+            step.addIncludePath(.{ .cwd_relative = "c:/msys64/mingw64/include" });
+            step.addIncludePath(.{ .cwd_relative = "c:/msys64/mingw64/include/c++/12.2.0" });
+            step.addIncludePath(.{ .cwd_relative = "c:/msys64/mingw64/include/c++/12.2.0/x86_64-w64-mingw32" });
+            step.addLibraryPath(.{ .cwd_relative = "c:/msys64/mingw64/lib" });
+            step.addIncludePath(.{ .cwd_relative = "c:/opencv/build/install/include" });
+            step.addLibraryPath(.{ .cwd_relative = "c:/opencv/build/install/x64/mingw/staticlib" });
+
+            step.linkSystemLibrary("opencv4");
+            step.linkSystemLibrary("stdc++.dll");
+            step.linkSystemLibrary("unwind");
+            step.linkSystemLibrary("m");
+            step.linkSystemLibrary("c");
         },
         else => {
-            @panic("Unsupported OS");
+            step.linkSystemLibrary("stdc++");
+            step.linkSystemLibrary("opencv4");
+            step.linkSystemLibrary("unwind");
+            step.linkSystemLibrary("m");
+            step.linkSystemLibrary("c");
         },
     }
-
-    exe.linkLibC();
-    exe.linkLibCpp();
-    exe.linkSystemLibrary("opencv4");
-    exe.linkSystemLibrary("m");
-}
-
-fn copyDir(b: *std.Build, source_path: []const u8, dest_path: []const u8) void {
-    const src_dir = b.pathJoin(&.{ b.build_root.path.?, source_path });
-    b.installDirectory(.{
-        .source_dir = .{ .cwd_relative = src_dir },
-        .install_dir = .{ .custom = dest_path },
-        .install_subdir = "",
-    });
 }

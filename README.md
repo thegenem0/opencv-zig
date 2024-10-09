@@ -2,6 +2,17 @@
 
 I just started playing around with this yesterday. Bear with me.
 
+Build OpenCV:
+```
+cmake -DCMAKE_CXX_COMPILER=clang++ \
+      -DCMAKE_C_COMPILER=clang \
+      -DCMAKE_CXX_FLAGS="-stdlib=libc++" \
+      -DCMAKE_EXE_LINKER_FLAGS="-stdlib=libc++" \
+      -DOPENCV_GENERATE_PKGCONFIG=ON \
+      -DOPENCV_EXTRA_MODULES_PATH=~/opencv-build/opencv_contrib-4.x/modules \
+      -DCMAKE_INSTALL_PREFIX=/usr ..
+```
+
 
 ## License
 

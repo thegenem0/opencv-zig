@@ -1,5 +1,5 @@
 const std = @import("std");
-const cv = @import("zigcv");
+const cv = @import("opencv");
 
 pub fn main() anyerror!void {
     const allocator = std.heap.page_allocator;

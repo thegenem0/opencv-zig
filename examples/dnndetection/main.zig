@@ -20,8 +20,8 @@
 //
 
 const std = @import("std");
-const cv = @import("zigcv");
-// const downloadFile = cv.utils.downloadFile;
+const cv = @import("opencv");
+const downloadFile = cv.utils.downloadFile;
 const Mat = cv.Mat;
 const Size = cv.Size;
 const c_api = cv.c_api;
@@ -59,8 +59,8 @@ pub fn main() anyerror!void {
     defer img.deinit();
 
     // open DNN object tracking model
-    // try downloadFile(model_url, cache_dir, allocator);
-    // try downloadFile(config_url, cache_dir, allocator);
+    try downloadFile(model_url, cache_dir, allocator);
+    try downloadFile(config_url, cache_dir, allocator);
     var net = cv.Net.readNet(model_path, config_path) catch |err| {
         std.debug.print("Error: {}\n", .{err});
         std.process.exit(1);

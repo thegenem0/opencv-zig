@@ -1,5 +1,5 @@
 const std = @import("std");
-const cv = @import("zigcv");
+const cv = @import("opencv");
 const cv_c_api = cv.c_api;
 
 pub fn main() anyerror!void {

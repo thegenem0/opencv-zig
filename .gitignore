@@ -36,8 +36,4 @@ mnist_png/*
 docs/
 src/images
 .zig-cache
-libs/gocv
-build.zig.bak
-devbox.json
-devbox.lock
-libs.zig
+libs

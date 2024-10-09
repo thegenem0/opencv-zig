@@ -1,22 +1,5 @@
 const std = @import("std");
-
-const gocv_source_files = [_][]const u8{
-    "core.cpp",
-    "asyncarray.cpp",
-    "calib3d.cpp",
-    "dnn.cpp",
-    "features2d.cpp",
-    "highgui.cpp",
-    "imgcodecs.cpp",
-    "imgproc.cpp",
-    "objdetect.cpp",
-    "photo.cpp",
-    "svd.cpp",
-    "version.cpp",
-    "video.cpp",
-    "videoio.cpp",
-};
-
+const libs = @import("libs.zig");
 const gocv_build_options = &[_][]const u8{ "-Wall", "-Wextra", "--std=c++11", "-fPIC" };
 
 pub fn build(b: *std.Build) !void {
@@ -29,75 +12,168 @@ pub fn build(b: *std.Build) !void {
     });
     const gocv_path = gocv_dep.path(".");
 
-    const opencv_zig = b.addStaticLibrary(.{
-        .name = "opencv",
+    const opencv_info = libs.getOpenCVInfo(b, contrib_files, cuda_files) catch |err| {
+        std.debug.print("Failed to get OpenCV info: {s}\n", .{@errorName(err)});
+        return;
+    };
+
+    if (!opencv_info.installed) {
+        std.debug.print("OpenCV not found, skipping build\n", .{});
+        return;
+    }
+
+    std.debug.print("OpenCV version: {s} found\n", .{opencv_info.version});
+
+    var core_lib: ?*std.Build.Step.Compile = null;
+    var contrib_lib: ?*std.Build.Step.Compile = null;
+    var cuda_lib: ?*std.Build.Step.Compile = null;
+
+    core_lib = libs.buildStaticLib(b, .{
+        .libname = "opencv",
         .target = target,
         .optimize = optimize,
+        .source_dir = gocv_path,
+        .cflags = gocv_build_options,
+    }, core_files);
+
+    if (opencv_info.has_contrib) {
+        contrib_lib = libs.buildStaticLib(b, .{
+            .libname = "opencv_contrib",
+            .target = target,
+            .optimize = optimize,
+            .source_dir = .{ .cwd_relative = b.pathJoin(&.{ gocv_path.getPath(b), "/contrib" }) },
+            .cflags = gocv_build_options,
+        }, contrib_files);
+    } else {
+        std.debug.print("Contrib module not found, skipping contrib build\n", .{});
+    }
+
+    if (opencv_info.has_cuda) {
+        cuda_lib = libs.buildStaticLib(b, .{
+            .libname = "opencv_cuda",
+            .target = target,
+            .optimize = optimize,
+            .source_dir = .{ .cwd_relative = b.pathJoin(&.{ gocv_path.getPath(b), "/cuda" }) },
+            .cflags = gocv_build_options,
+        }, cuda_files);
+    } else {
+        std.debug.print("CUDA module not found, skipping CUDA build\n", .{});
+    }
+
+    const module = libs.buildModule(b, .{
+        .modname = "opencv",
+        .source_file = b.path("src/opencv.zig"),
+        .source_dir = gocv_path,
     });
 
-    inline for (gocv_source_files) |file| {
-        const c_file_path = b.pathJoin(&.{ gocv_path.getPath(b), file });
-        std.debug.print("adding {s}\n", .{c_file_path});
-        opencv_zig.addCSourceFile(.{
-            .file = .{ .cwd_relative = c_file_path },
-            .flags = gocv_build_options,
+    const examples = [_]Program{
+        .{
+            .name = "hello",
+            .path = "examples/hello/main.zig",
+            .desc = "Show Webcam",
+        },
+        .{
+            .name = "version",
+            .path = "examples/version/main.zig",
+            .desc = "Print OpenCV Version",
+        },
+        .{
+            .name = "show_image",
+            .path = "examples/showimage/main.zig",
+            .desc = "Show Image Demo",
+        },
+        .{
+            .name = "face_detection",
+            .path = "examples/facedetect/main.zig",
+            .desc = "Face Detection Demo",
+        },
+        .{
+            .name = "face_blur",
+            .path = "examples/faceblur/main.zig",
+            .desc = "Face Detection and Blur Demo",
+        },
+        .{
+            .name = "dnn_detection",
+            .path = "examples/dnndetection/main.zig",
+            .desc = "DNN Detection Demo",
+        },
+        .{
+            .name = "saveimage",
+            .path = "examples/saveimage/main.zig",
+            .desc = "Save Image Demo",
+        },
+        .{
+            .name = "detail_enhance",
+            .path = "examples/detail_enhance/main.zig",
+            .desc = "Detail Enhanced Image Demo",
+        },
+    };
+
+    for (examples) |example| {
+        const example_exe = b.addExecutable(.{
+            .name = example.name,
+            .root_source_file = b.path(example.path),
+            .target = target,
+            .optimize = optimize,
         });
-    }
 
-    linkSystemLibraries(opencv_zig);
+        example_exe.root_module.addImport("opencv", module);
+        if (core_lib) |lib| example_exe.linkLibrary(lib);
+        if (contrib_lib) |lib| example_exe.linkLibrary(lib);
+        if (cuda_lib) |lib| example_exe.linkLibrary(lib);
 
-    std.debug.print("adding include path {s}\n", .{gocv_path.getPath(b)});
-    opencv_zig.addIncludePath(gocv_path);
-
-    std.debug.print("installing headers\n", .{});
-    b.installArtifact(opencv_zig);
-
-    const module = b.addModule("opencv_c", .{
-        .root_source_file = b.path("src/opencv.zig"),
-    });
-
-    std.debug.print("adding include path {s}\n", .{gocv_path.getPath(b)});
-    module.addIncludePath(gocv_path);
-
-    const example = b.addExecutable(.{
-        .name = "example",
-        .root_source_file = b.path("examples/hello/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    std.debug.print("adding import opencv\n", .{});
-    example.root_module.addImport("opencv", module);
-
-    std.debug.print("linking library opencv\n", .{});
-    example.linkLibrary(opencv_zig);
-    linkSystemLibraries(example);
-
-    b.installArtifact(example);
-}
-
-fn linkSystemLibraries(step: *std.Build.Step.Compile) void {
-    switch (step.rootModuleTarget().os.tag) {
-        .windows => {
-            step.addIncludePath(.{ .cwd_relative = "c:/msys64/mingw64/include" });
-            step.addIncludePath(.{ .cwd_relative = "c:/msys64/mingw64/include/c++/12.2.0" });
-            step.addIncludePath(.{ .cwd_relative = "c:/msys64/mingw64/include/c++/12.2.0/x86_64-w64-mingw32" });
-            step.addLibraryPath(.{ .cwd_relative = "c:/msys64/mingw64/lib" });
-            step.addIncludePath(.{ .cwd_relative = "c:/opencv/build/install/include" });
-            step.addLibraryPath(.{ .cwd_relative = "c:/opencv/build/install/x64/mingw/staticlib" });
-
-            step.linkSystemLibrary("opencv4");
-            step.linkSystemLibrary("stdc++.dll");
-            step.linkSystemLibrary("unwind");
-            step.linkSystemLibrary("m");
-            step.linkSystemLibrary("c");
-        },
-        else => {
-            step.linkSystemLibrary("stdc++");
-            step.linkSystemLibrary("opencv4");
-            step.linkSystemLibrary("unwind");
-            step.linkSystemLibrary("m");
-            step.linkSystemLibrary("c");
-        },
+        libs.linkSystemLibraries(example_exe);
+        b.installArtifact(example_exe);
     }
 }
+
+const core_files = &[_][]const u8{
+    "aruco.cpp",
+    "asyncarray.cpp",
+    "calib3d.cpp",
+    "core.cpp",
+    "dnn.cpp",
+    "features2d.cpp",
+    "highgui.cpp",
+    "imgcodecs.cpp",
+    "imgproc.cpp",
+    "objdetect.cpp",
+    "persistence_filenode.cpp",
+    "persistence_filestorage.cpp",
+    "photo.cpp",
+    "svd.cpp",
+    "version.cpp",
+    "video.cpp",
+    "videoio.cpp",
+};
+
+const contrib_files = &[_][]const u8{
+    "bgsegm.cpp",
+    "face.cpp",
+    "freetype.cpp",
+    "img_hash.cpp",
+    "tracking.cpp",
+    "wechat_qrcode.cpp",
+    "xfeatures2d.cpp",
+    "ximgproc.cpp",
+    "xphoto.cpp",
+};
+
+const cuda_files = &[_][]const u8{
+    "arithm.cpp",
+    "bgsegm.cpp",
+    "core.cpp",
+    "cuda.cpp",
+    "filters.cpp",
+    "imgproc.cpp",
+    "objdetect.cpp",
+    "optflow.cpp",
+    "warping.cpp",
+};
+
+const Program = struct {
+    name: []const u8,
+    path: []const u8,
+    desc: []const u8,
+    fstage1: bool = false,
+};

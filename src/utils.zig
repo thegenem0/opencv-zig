@@ -57,7 +57,7 @@ pub fn downloadFile(url: []const u8, dir: []const u8, allocator: std.mem.Allocat
         "{s}{s}",
         .{ dir, filename },
     );
-    var child = std.ChildProcess.init(
+    var child = std.process.Child.init(
         &.{
             "curl",
             url,

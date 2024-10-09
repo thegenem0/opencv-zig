@@ -10,7 +10,6 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    const gocv_path = gocv_dep.path(".");
 
     const opencv_info = libs.getOpenCVInfo(b, contrib_files, cuda_files) catch |err| {
         std.debug.print("Failed to get OpenCV info: {s}\n", .{@errorName(err)});
@@ -32,7 +31,7 @@ pub fn build(b: *std.Build) !void {
         .libname = "opencv",
         .target = target,
         .optimize = optimize,
-        .source_dir = gocv_path,
+        .source_dir = gocv_dep.path(""),
         .cflags = gocv_build_options,
     }, core_files);
 
@@ -41,7 +40,7 @@ pub fn build(b: *std.Build) !void {
             .libname = "opencv_contrib",
             .target = target,
             .optimize = optimize,
-            .source_dir = .{ .cwd_relative = b.pathJoin(&.{ gocv_path.getPath(b), "/contrib" }) },
+            .source_dir = gocv_dep.path("contrib"),
             .cflags = gocv_build_options,
         }, contrib_files);
     } else {
@@ -53,7 +52,7 @@ pub fn build(b: *std.Build) !void {
             .libname = "opencv_cuda",
             .target = target,
             .optimize = optimize,
-            .source_dir = .{ .cwd_relative = b.pathJoin(&.{ gocv_path.getPath(b), "/cuda" }) },
+            .source_dir = gocv_dep.path("cuda"),
             .cflags = gocv_build_options,
         }, cuda_files);
     } else {
@@ -63,7 +62,7 @@ pub fn build(b: *std.Build) !void {
     const module = libs.buildModule(b, .{
         .modname = "opencv",
         .source_file = b.path("src/opencv.zig"),
-        .source_dir = gocv_path,
+        .source_dir = gocv_dep.path(""),
     });
 
     const examples = [_]Program{

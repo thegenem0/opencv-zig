@@ -67,11 +67,11 @@ pub fn linkSystemLibraries(step: *std.Build.Step.Compile) void {
             step.addIncludePath(.{ .cwd_relative = "c:/opencv/build/install/include" });
             step.addLibraryPath(.{ .cwd_relative = "c:/opencv/build/install/x64/mingw/staticlib" });
 
+            step.linkLibC();
+            step.linkLibCpp();
             step.linkSystemLibrary("opencv4");
-            step.linkSystemLibrary("stdc++.dll");
             step.linkSystemLibrary("unwind");
             step.linkSystemLibrary("m");
-            step.linkSystemLibrary("c");
         },
         else => {
             step.linkSystemLibrary("stdc++");
@@ -143,7 +143,6 @@ fn checkAvailableCVModules(b: *std.Build, comptime files: []const []const u8, li
         const trimmed_file = std.mem.trimRight(u8, file, ".cpp");
         const check_flag = try std.fmt.allocPrint(b.allocator, "-lopencv_{s}", .{trimmed_file});
         if (std.mem.indexOf(u8, libs_result, check_flag) == null) {
-            std.debug.print("OpenCV module {s} not found, skipping build\n", .{file});
             return false;
         }
     }

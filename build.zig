@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) !void {
             .cflags = gocv_build_options,
         }, contrib_files);
     } else {
-        std.debug.print("Contrib module not found, skipping contrib build\n", .{});
+        std.debug.print("Contrib modules not found, skipping contrib build\n", .{});
     }
 
     if (opencv_info.has_cuda) {
@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) !void {
             .cflags = gocv_build_options,
         }, cuda_files);
     } else {
-        std.debug.print("CUDA module not found, skipping CUDA build\n", .{});
+        std.debug.print("CUDA modules not found, skipping CUDA build\n", .{});
     }
 
     const module = libs.buildModule(b, .{
